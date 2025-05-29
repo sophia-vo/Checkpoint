@@ -552,3 +552,29 @@ html {
       text-align: center;
   }
 }
+
+/* In your style.css file */
+
+#hand-container {
+  position: relative; /* THIS IS CRUCIAL FOR ABSOLUTE CHILDREN */
+  width: 100%; /* Or set a fixed width */
+  height: 500px; /* Or set a fixed height that fits your design */
+  /* Add any other styling for your container */
+  display: flex; /* Often useful if your canvas is dynamically sized */
+  justify-content: center; /* Center the canvas if it's smaller than container */
+  align-items: center; /* Center the canvas if it's smaller than container */
+}
+
+#hand-tooltip {
+  position: absolute; /* This allows left/top to be relative to #hand-container */
+  pointer-events: none; /* VERY IMPORTANT: Allows mouse events to pass through to the canvas */
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  max-width: 200px;
+  z-index: 1000; /* Ensures it appears above the canvas */
+  visibility: hidden; /* Initial state, controlled by JS */
+  /* Add any other specific styling for your tooltip */
+}
