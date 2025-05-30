@@ -578,3 +578,42 @@ html {
   visibility: hidden; /* Initial state, controlled by JS */
   /* Add any other specific styling for your tooltip */
 }
+
+.three-column-layout {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: wrap;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.three-column-layout .image-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+  max-width: 250px;
+}
+
+.three-column-layout .image-column img {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.text-column {
+  flex: 2;
+  min-width: 300px;
+  max-width: 600px;
+  text-align: center;              /* <-- This centers the text */
+  display: flex;
+  flex-direction: column;
+  align-items: center;             /* <-- This centers all child elements */
+}
+
+
+
+
