@@ -6,7 +6,7 @@ html {
     font-family: 'Open Sans', sans-serif;
     background-color: #f0f2f5;
     /* Fallback background */
-    color: #333;
+    color: #767676;
     overflow: hidden;
     /* Prevent body scrollbars */
 }
@@ -100,7 +100,7 @@ html {
 /* Section-specific backgrounds and styles */
 #title-page-main,
 #title-page-sub {
-    background-color: #1a1a1a;
+    background-color: #24293d;
     color: white;
     display: flex;
     justify-content: center;
@@ -202,7 +202,7 @@ html {
 }
 
 #writeup-title-page {
-    background-color: #2c3e50;
+    background-color: #355a7e;
     color: white;
     display: flex;
     justify-content: center;
@@ -212,7 +212,7 @@ html {
 #writeup-title-page h1 {
     font-size: 3.5rem;
     font-weight: 700;
-    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+    text-shadow: 1px 1px 3px rgba(151, 153, 158, 0.2);
 }
 
 
