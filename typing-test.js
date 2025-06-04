@@ -35,14 +35,14 @@ function calculateDelayArray(chars, personid) {
     const users = {
         '5USOYSDCXB': {'LL': 175.8, 'LR': 125.0, 'LS': 125.0, 'RL': 125.0, 'RR': 187.5, 'RS': 156.3, 'SL': 140.6, 'SR': 156.3, 'SS': 210.95},
         '8TEUUGQBYB': {'LL': 312.5, 'LR': 402.3, 'LS': 382.8, 'RL': 429.7, 'RR': 281.3, 'RS': 390.6, 'SL': 406.3, 'SR': 426.8, 'SS': 217.8},
-        'E0TBSMYHQI': {'LL': 312.5, 'LR': 320.3, 'LS': 363.29999999999995, 'RL': 421.9, 'RR': 335.9, 'RS': 382.8, 'SL': 382.8, 'SR': 398.4, 'SS': 179.7},
+        'E0TBSMYHQI': {'LL': 312.5, 'LR': 320.3, 'LS': 363.3, 'RL': 421.9, 'RR': 335.9, 'RS': 382.8, 'SL': 382.8, 'SR': 398.4, 'SS': 179.7},
         'I3U47MF5UF': {'LL': 222.7, 'LR': 148.4, 'LS': 154.3, 'RL': 171.9, 'RR': 187.5, 'RS': 187.5, 'SL': 128.9, 'SR': 148.4, 'SS': 250.0},
         'IDZHIUK2W2': {'LL': 205.05, 'LR': 156.3, 'LS': 191.4, 'RL': 175.8, 'RR': 214.8, 'RS': 289.1, 'SL': 199.2, 'SR': 234.4, 'SS': 589.8},
         'JHBOKKHOQW': {'LL': 285.2, 'LR': 230.5, 'LS': 300.8, 'RL': 269.5, 'RR': 269.5, 'RS': 358.0, 'SL': 246.1, 'SR': 273.4, 'SS': 199.2},
         'LIOUUNGQ8Q': {'LL': 421.9, 'LR': 503.9, 'LS': 416.05, 'RL': 570.3, 'RR': 464.8, 'RS': 429.7, 'SL': 480.5, 'SR': 593.8, 'SS': 359.4},
-        'LSQWWDXEYO': {'LL': 328.1, 'LR': 246.1, 'LS': 300.8, 'RL': 250.0, 'RR': 281.3, 'RS': 335.9, 'SL': 250.0, 'SR': 328.1, 'SS': 224.64999999999998},
-        'QEYNMBJ8T0': {'LL': 253.9, 'LR': 235.35000000000002, 'LS': 230.5, 'RL': 238.3, 'RR': 269.5, 'RS': 250.95, 'SL': 235.35000000000002, 'SR': 300.8, 'SS': 281.3},
-        'SGT8K5GXG0': {'LL': 298.85, 'LR': 335.9, 'LS': 240.2, 'RL': 269.5, 'RR': 359.4, 'RS': 312.5, 'SL': 328.1, 'SR': 429.7, 'SS': 398.45000000000005},
+        'LSQWWDXEYO': {'LL': 328.1, 'LR': 246.1, 'LS': 300.8, 'RL': 250.0, 'RR': 281.3, 'RS': 335.9, 'SL': 250.0, 'SR': 328.1, 'SS': 224.65},
+        'QEYNMBJ8T0': {'LL': 253.9, 'LR': 235.35, 'LS': 230.5, 'RL': 238.3, 'RR': 269.5, 'RS': 250.95, 'SL': 235.35, 'SR': 300.8, 'SS': 281.3},
+        'SGT8K5GXG0': {'LL': 298.85, 'LR': 335.9, 'LS': 240.2, 'RL': 269.5, 'RR': 359.4, 'RS': 312.5, 'SL': 328.1, 'SR': 429.7, 'SS': 398.45},
         'TL2XHTLK1T': {'LL': 265.6, 'LR': 418.0, 'LS': 390.6, 'RL': 421.9, 'RR': 310.5, 'RS': 347.7, 'SL': 375.0, 'SR': 359.4, 'SS': 183.6},
         'UDCY90VKYN': {'LL': 203.1, 'LR': 179.7, 'LS': 183.6, 'RL': 152.3, 'RR': 230.5, 'RS': 214.8, 'SL': 257.8, 'SR': 277.3, 'SS': 183.6},
         'V2SZVYXBOD': {'LL': 265.6, 'LR': 265.6, 'LS': 218.8, 'RL': 273.4, 'RR': 328.1, 'RS': 363.3, 'SL': 265.6, 'SR': 375.0, 'SS': 300.8},
@@ -89,7 +89,6 @@ let latencies = [];
 function moveGhostCaret(spans, delayArray, ghostIndex) {
     if (!d3.select('#latency-line').empty()) { plotLatencyLine() };
     const ghostDelay = delayArray[ghostIndex] * (Math.random() / 2 + 1); // ms between keystrokes
-    console.log(ghostDelay);
     const ghostCaret = d3.select('.ghost-caret');
     
     if (ghostIndex >= spans.length) {
@@ -113,45 +112,62 @@ function plotLatencyLine() {
     const data = latencies.map((latency, i) => ({ index: i + 1, latency }));
     const ghostData = ghostLatencies.map((latency, i) => ({ index: i + 1, latency }));
 
-    const margin = { top: 20, right: 20, bottom: 30, left: 40 };
-    const width = 600 - margin.left - margin.right;
-    const height = 200 - margin.top - margin.bottom;
+    const margin = { top: 20, right: 20, bottom: 50, left: 60 };
+    const width = 700 - margin.left - margin.right;
+    const height = 300 - margin.top - margin.bottom;
 
     const svg = d3.select("#result")
-        .html("") // clear previous
+        .html("") // Clear previous chart
         .append("svg")
-        .attr('id', 'latency-line')
+        .attr("id", "latency-line")
         .attr("width", width + margin.left + margin.right)
         .attr("height", height + margin.top + margin.bottom)
         .append("g")
-        .attr("transform", `translate(${margin.left},${margin.top})`)
+        .attr("transform", `translate(${margin.left},${margin.top})`);
 
     const x = d3.scaleLinear()
         .domain([1, d3.max([data.length, ghostData.length])])
         .range([0, width]);
 
     const y = d3.scaleLinear()
-        .domain([0, d3.max([...data, ...ghostData], d => d.latency)])
+        .domain([0, d3.max(ghostData, d => d.latency)])
         .nice()
         .range([height, 0]);
 
     const line = d3.line()
         .x(d => x(d.index))
         .y(d => y(d.latency))
-        .curve(d3.curveCatmullRom);;
+        .curve(d3.curveCatmullRom);
 
-    const colors = ['steelblue', 'red'];
+    const colors = ['lightsteelblue', 'moccasin'];
 
+    // Draw X axis
+    svg.append("g")
+        .attr("transform", `translate(0, ${height})`)
+        .call(d3.axisBottom(x).ticks(Math.min(10, data.length)))
+        .append("text")
+        .attr("class", "x label")
+        .attr("x", width / 2)
+        .attr("y", 40)
+        .attr("fill", "#000")
+        .attr("text-anchor", "middle")
+        .text("Character Index");
+
+    // Draw Y axis
+    svg.append("g")
+        .call(d3.axisLeft(y))
+        .append("text")
+        .attr("class", "y label")
+        .attr("transform", "rotate(-90)")
+        .attr("x", -height / 2)
+        .attr("y", -45)
+        .attr("dy", "0.71em")
+        .attr("fill", "#000")
+        .attr("text-anchor", "middle")
+        .text("Latency (ms)");
+
+    // Draw lines
     [data, ghostData].forEach((points, i) => {
-        // Axes
-        svg.append("g")
-            .attr("transform", `translate(0,${height})`)
-            .call(d3.axisBottom(x).ticks(Math.min(10, points.length)));
-
-        svg.append("g")
-            .call(d3.axisLeft(y));
-
-        // Line path
         svg.append("path")
             .datum(points)
             .attr("fill", "none")
@@ -161,10 +177,8 @@ function plotLatencyLine() {
     });
 }
 
+
 function createResults(sentence) {
-    console.log(timestamps);
-    console.log(latencies);
-    
     const time = (timestamps[timestamps.length - 1] - timestamps[0]) / 1000;
     const wpm = Math.round((sentence.split(" ").length / time) * 60);
 
@@ -175,7 +189,7 @@ function createResults(sentence) {
 }
 
 function createTypingTest(words) {
-    const sentence = generateRandomSentence(words, 3);
+    const sentence = generateRandomSentence(words, 30);
     console.log(sentence);
 
     let sentenceDiv = d3.select('#sentence');
@@ -281,6 +295,7 @@ function createTypingTest(words) {
         // End condition
         if (typed.length === sentence.length && !ended) {
             ended = true;
+            input.node().blur();
             createResults(sentence);
         }
     });

@@ -1,281 +1,102 @@
+// file_path: typing.js
 // Ensure d3 is available (it's loaded via script tag in HTML)
-// import * as d3 from 'https://cdn.jsdelivr.net/npm/d3@7/+esm'; // This line is not strictly needed if d3 is global
 
-document.addEventListener('DOMContentLoaded', () => {
-  initializeTypingTest();
-  initializePulseVisualization();
-});
-
-// --- VISUALIZATION 1: TYPING TEST ---
-function initializeTypingTest() {
-  const vizContainer = document.getElementById('viz1-container-typing');
-  if (!vizContainer) {
-    // console.log("Typing test container not found, skipping initialization.");
-    return;
-  }
-
-  const svg = d3.select("#typing-viz");
-  const width = +svg.attr("width");
-  const height = +svg.attr("height");
-
-  const margin = { top: 20, right: 20, bottom: 40, left: 60 };
-  const innerWidth = width - margin.left - margin.right;
-  const innerHeight = height - margin.top - margin.bottom;
-
-  const chartArea = svg.append("g")
-    .attr("transform", `translate(${margin.left},${margin.top})`);
-
-  const xScale = d3.scaleLinear().range([0, innerWidth]); // Time (s)
-  const yScale = d3.scaleLinear().range([innerHeight, 0]); // ms
-
-  let keyDownTimes = {};
-  let events = [];
-  let pdEvents = [];
-  let startTime = null;
-  let selectedMetric = "hold"; // Default metric
-
-  // Load Parkinson’s sample user data
-  // IMPORTANT: Make sure this file path is correct relative to your HTML file.
-  // If your HTML is in the root, and data is in a 'data' subfolder:
-  d3.json("data/sample_pd_user.json").then(data => {
-    pdEvents = data.map(d => ({
-      timestamp: new Date(d.timestamp),
-      holdTime: d.holdTime,
-      latency: d.latency
-    }));
-    updateChart(); // draw initial chart
-    console.log('Visualization 1 (Typing Test) data loaded and rendered!');
-  }).catch(error => {
-    console.error("Error loading sample_pd_user.json:", error);
-    chartArea.append("text")
-      .attr("x", innerWidth / 2)
-      .attr("y", innerHeight / 2)
-      .attr("text-anchor", "middle")
-      .attr("font-size", "14px")
-      .attr("fill", "#cc0000")
-      .text("Error loading sample data. Please check console.");
-  });
-
-  const typingBox = document.getElementById("typing-box");
-  if (typingBox) {
-    typingBox.addEventListener("keydown", e => {
-      if (!e.repeat) keyDownTimes[e.key] = performance.now();
-    });
-
-    typingBox.addEventListener("keyup", e => {
-      const now = performance.now();
-      if (!startTime) startTime = now;
-      const timestamp = (now - startTime) / 1000; // seconds since typing started
-
-      const down = keyDownTimes[e.key];
-      if (down) {
-        const holdTime = now - down;
-        const latency = events.length > 0 ? down - events[events.length - 1].rawTime : 0; // use rawTime for latency
-
-        events.push({
-          timeElapsed: timestamp,
-          holdTime,
-          latency,
-          rawTime: now // store raw timestamp for latency calculation
-        });
-        delete keyDownTimes[e.key]; // Clear the key after processing
-        updateChart();
-      }
-    });
-  } else {
-    console.error("Typing box element not found for Typing Test.");
-  }
-
-
-  const metricSelectTyping = document.getElementById("metric-select-typing");
-  if (metricSelectTyping) {
-    metricSelectTyping.addEventListener("change", e => {
-      selectedMetric = e.target.value;
-      updateChart();
-    });
-  } else {
-    console.error("Metric select element not found for Typing Test.");
-  }
-
-
-  function updateChart() {
-    chartArea.selectAll("*").remove();
-
-    if (events.length === 0 && pdEvents.length === 0) {
-      chartArea.append("text")
-        .attr("x", innerWidth / 2)
-        .attr("y", innerHeight / 2)
-        .attr("text-anchor", "middle")
-        .attr("font-size", "14px")
-        .attr("fill", "#888")
-        .text("Start typing to see your rhythm vs. Parkinson’s sample.");
-      return;
-    }
-    if (events.length === 0 && pdEvents.length > 0) {
-      chartArea.append("text")
-        .attr("x", innerWidth / 2)
-        .attr("y", innerHeight / 2)
-        .attr("text-anchor", "middle")
-        .attr("font-size", "14px")
-        .attr("fill", "#888")
-        .text("Start typing to see your rhythm.");
-      // Still draw PD line if available
-    }
-
-
-    const metricKey = selectedMetric === "hold" ? "holdTime" : "latency";
-
-    // Normalize PD timestamps to timeElapsed relative to its own start
-    let pdCleaned = [];
-    if (pdEvents.length > 0) {
-      const pdStartTime = pdEvents[0].timestamp;
-      pdCleaned = pdEvents.map(d => ({
-        timeElapsed: (d.timestamp - pdStartTime) / 1000,
-        holdTime: d.holdTime,
-        latency: d.latency
-      }));
-    }
-
-    const userTimeMax = events.length > 0 ? d3.max(events, d => d.timeElapsed) : 0;
-    const pdTimeMax = pdCleaned.length > 0 ? d3.max(pdCleaned, d => d.timeElapsed) : 0;
-
-    // Determine a reasonable xMax for the chart based on available data
-    let xMaxDomain = Math.max(userTimeMax, 10); // Default to at least 10s or current user max
-    if (events.length === 0 && pdCleaned.length > 0) { // If only PD data, use its max time
-      xMaxDomain = Math.max(pdTimeMax, 10);
-    }
-
-    // Filter PD data to the current xMaxDomain if user is typing, or show all PD data if user hasn't typed
-    const pdSubset = pdCleaned.filter(d => d.timeElapsed <= xMaxDomain);
-
-    const yMaxUser = events.length > 0 ? d3.max(events, d => d[metricKey]) : 0;
-    const yMaxPD = pdSubset.length > 0 ? d3.max(pdSubset, d => d[metricKey]) : 0;
-    const yOverallMax = Math.max(yMaxUser, yMaxPD, 200); // Ensure a minimum y-axis height, e.g., 200ms
-
-    xScale.domain([0, xMaxDomain]);
-    yScale.domain([0, yOverallMax * 1.1]); // Add a little padding to y-axis
-
-    // Axes
-    const xAxis = d3.axisBottom(xScale).ticks(Math.min(10, Math.floor(xMaxDomain))).tickFormat(d => `${d.toFixed(1)}s`);
-    const yAxis = d3.axisLeft(yScale).ticks(5).tickFormat(d => `${Math.round(d)} ms`);
-
-    chartArea.append("g")
-      .attr("transform", `translate(0,${innerHeight})`)
-      .call(xAxis)
-      .selectAll("text")
-      .style("font-size", "10px");
-
-
-    chartArea.append("g").call(yAxis)
-      .selectAll("text")
-      .style("font-size", "10px");
-
-
-    const lineGen = d3.line()
-      .x(d => xScale(d.timeElapsed))
-      .y(d => yScale(d[metricKey]))
-      .defined(d => d[metricKey] != null && !isNaN(d[metricKey])); // Handle null/NaN data points
-
-
-    // Draw user line if data exists
-    if (events.length > 0) {
-      chartArea.append("path")
-        .datum(events)
-        .attr("fill", "none")
-        .attr("stroke", "steelblue")
-        .attr("stroke-width", 2)
-        .attr("d", lineGen);
-    }
-
-    // Draw Parkinson's line if data exists
-    if (pdSubset.length > 0) {
-      chartArea.append("path")
-        .datum(pdSubset)
-        .attr("fill", "none")
-        .attr("stroke", "darkred")
-        .attr("stroke-width", 2)
-        .attr("stroke-dasharray", "4")
-        .attr("d", lineGen);
-    }
-
-    const avgUser = events.length > 0 ? d3.mean(events, d => d[metricKey]) : 0;
-    const statsText = document.getElementById("typing-stats");
-    if (statsText) {
-      if (events.length > 0) {
-        statsText.textContent = `Your Average ${selectedMetric === "hold" ? "Hold Time" : "Latency"}: ${avgUser.toFixed(1)} ms`;
-      } else {
-        statsText.textContent = ""; // Clear if no user events
-      }
-    }
-  }
-
-  const resetButton = document.getElementById("reset-button");
-  if (resetButton) {
-    resetButton.addEventListener("click", () => {
-      events = [];
-      startTime = null;
-      keyDownTimes = {};
-      if (typingBox) typingBox.value = ""; // clear input box
-      const statsText = document.getElementById("typing-stats");
-      if (statsText) statsText.textContent = ""; // clear stats
-      updateChart(); // Redraw chart (will show initial message)
-      if (typingBox) typingBox.focus();
-    });
-  } else {
-    console.error("Reset button not found for Typing Test.");
-  }
-}
-// --- END VISUALIZATION 1 ---
-
-
-// --- VISUALIZATION 6: PULSE VISUALIZATION ---
+// --- VISUALIZATION 6: PULSE VISUALIZATION & MEDICATION LINE CHART ---
 function initializePulseVisualization() {
   const vizContainer = document.getElementById('pulse-viz-page');
   if (!vizContainer) {
-    // console.log("Pulse viz container not found, skipping initialization.");
+    console.error("Pulse viz container not found");
     return;
   }
 
   const meds = [
-    { name: 'Levadopa', file: 'data/short_levadopa_events.csv' },
-    { name: 'DA', file: 'data/da_events.csv' },
-    { name: 'MAOB', file: 'data/maob_events.csv' },
-    { name: 'Other', file: 'data/other_events.csv' },
-    { name: 'No Med', file: 'data/nomed_events.csv' }
+    { name: 'Levadopa', file: 'data/short_levadopa_events.csv', color: '#1f77b4' },
+    { name: 'DA', file: 'data/da_events.csv', color: '#ff7f0e' },
+    { name: 'MAOB', file: 'data/maob_events.csv', color: '#2ca02c' },
+    { name: 'Other', file: 'data/other_events.csv', color: '#d62728' },
+    { name: 'No Med', file: 'data/nomed_events.csv', color: '#9467bd' }
   ];
+
+  let currentChartMetric = 'Hold'; // 'Hold' or 'Flight'
+  let visibleMedications = new Set(meds.map(m => m.name)); // Initially all visible
+  let allMedicationData = []; // To store loaded data for all meds
+  let currentPulseMedicationName = ''; // Name of medication active in PULSE animation
+
+  const chartLoader = document.getElementById('chart-loading-overlay');
+  const globalLoader = document.getElementById('loader'); // Global page loader
+  const chartContainer = d3.select("#medication-line-chart-container");
+  const medicationTogglesContainer = d3.select('#chart-medication-toggles');
+
+  // Populate medication toggles
+  meds.forEach(med => {
+    const label = medicationTogglesContainer.append('label');
+    label.append('input')
+      .attr('type', 'checkbox')
+      .attr('name', 'medToggle')
+      .attr('value', med.name)
+      .property('checked', true)
+      .on('change', function() {
+        if (this.checked) {
+          visibleMedications.add(med.name);
+        } else {
+          visibleMedications.delete(med.name);
+        }
+        renderMedicationLineChart();
+      });
+    label.append('span').text(med.name);
+  });
+  
+  // Event listener for chart metric toggle (Hold/Flight)
+  d3.selectAll('input[name="chartMetric"]').on('change', function() {
+    currentChartMetric = this.value;
+    renderMedicationLineChart();
+  });
+
+  if (chartLoader) chartLoader.style.display = 'flex';
 
   const dataPromises = meds.map(m =>
     d3.csv(m.file, d => ({
       medication: m.name,
       Hold: +d.Hold,
-      Flight: +d.Flight
+      Flight: +d.Flight,
+      color: m.color
     })).catch(error => {
       console.error(`Error loading ${m.file}:`, error);
-      return []; // Return empty array on error for this file
+      return [];
     })
   );
 
   Promise.all(dataPromises).then(datasets => {
-    const data = datasets.flat();
-    if (data.length === 0) {
-      console.error("No data loaded for pulse visualization. Check CSV paths and files.");
+    allMedicationData = datasets; // Store all loaded datasets
+    
+    if (chartLoader) chartLoader.style.display = 'none';
+    if (globalLoader) globalLoader.style.display = 'none'; // Also hide global loader if it was waiting for this
+
+    if (allMedicationData.every(ds => ds.length === 0)) {
+      console.error("No data loaded for pulse visualization or line chart.");
       const pulseInfoBox = document.getElementById('pulse-info-box');
       if (pulseInfoBox) {
-        pulseInfoBox.innerHTML = "<p>Error: Could not load pulse data.</p>";
+        pulseInfoBox.innerHTML = "<p>Error: Could not load data.</p>";
         pulseInfoBox.style.visibility = 'visible';
+      }
+      if (chartContainer) {
+        chartContainer.html("<p>Error: Could not load data for the chart.</p>");
       }
       return;
     }
 
+    renderMedicationLineChart(); // Initial chart render
+
+    // --- Pulse Animation Logic ---
     const button = d3.select('#big-button');
     const pulseHoldTimeEl = document.getElementById('pulse-hold-time');
     const pulseFlightTimeEl = document.getElementById('pulse-flight-time');
     const pulseInfoBoxEl = document.getElementById('pulse-info-box');
 
     let tempo = +d3.select('#tempo-slider').property('value');
-    let currentEvents = [];
+    let currentEventsForAnimation = [];
     let stopSignal = false;
-    let animationTimeout = null; // To store timeout ID
+    let animationTimeout = null;
 
     d3.select('#tempo-slider').on('input', function () {
       tempo = +this.value;
@@ -283,72 +104,217 @@ function initializePulseVisualization() {
     });
 
     d3.selectAll('.med-btn').on('click', function () {
-      stopSignal = true; // Signal to stop current animation
-      if (animationTimeout) clearTimeout(animationTimeout); // Clear pending timeout
+      stopSignal = true;
+      if (animationTimeout) clearTimeout(animationTimeout);
+      d3.select(".pulsing-point").remove(); // Remove any existing pulse point
 
       d3.selectAll('.med-btn').classed('active', false);
       d3.select(this).classed('active', true);
 
-      const medName = d3.select(this).attr('data-med');
-      currentEvents = data.filter(d => d.medication === medName);
+      currentPulseMedicationName = d3.select(this).attr('data-med');
+      const activeDataset = allMedicationData.find(ds => ds.length > 0 && ds[0].medication === currentPulseMedicationName);
+      currentEventsForAnimation = activeDataset || [];
 
-      if (currentEvents.length === 0) {
-        console.warn(`No events found for medication: ${medName}`);
+      if (currentEventsForAnimation.length === 0) {
         if (pulseInfoBoxEl) pulseInfoBoxEl.style.visibility = 'hidden';
         return;
       }
 
-      stopSignal = false; // Reset stop signal for new animation
-      // Start playing events after a short delay to ensure stopSignal is processed
+      stopSignal = false;
       animationTimeout = setTimeout(() => playEvents(0), 100);
     });
 
     function playEvents(i) {
-      if (stopSignal || i >= currentEvents.length) {
-        // Animation stopped or finished
-        if (!stopSignal && pulseInfoBoxEl) { // If finished normally
-          // Optionally, clear the info or leave the last one
-          // pulseInfoBoxEl.style.visibility = 'hidden'; 
-        }
+      if (stopSignal || i >= currentEventsForAnimation.length) {
+        d3.select(".pulsing-point").remove(); // Clean up last point
         return;
       }
-      const ev = currentEvents[i];
-      if (!ev || typeof ev.Hold !== 'number' || typeof ev.Flight !== 'number') {
-        console.warn("Skipping invalid event:", ev);
-        animationTimeout = setTimeout(() => playEvents(i + 1), 50); // Skip to next quickly
+      const ev = currentEventsForAnimation[i];
+      if (!ev || typeof ev[currentChartMetric] !== 'number' || isNaN(ev[currentChartMetric])) {
+        animationTimeout = setTimeout(() => playEvents(i + 1), 50);
         return;
       }
 
-      const holdDur = ev.Hold / tempo;
-      const gapDur = ev.Flight / tempo;
+      const holdDur = Math.max(10, ev.Hold / tempo);
+      const gapDur = Math.max(10, ev.Flight / tempo);
 
       if (pulseHoldTimeEl) pulseHoldTimeEl.textContent = ev.Hold.toFixed(1);
       if (pulseFlightTimeEl) pulseFlightTimeEl.textContent = ev.Flight.toFixed(1);
       if (pulseInfoBoxEl) pulseInfoBoxEl.style.visibility = 'visible';
 
+      // Show point on chart
+      if (visibleMedications.has(currentPulseMedicationName)) {
+         showPulsePointOnChart(i, ev[currentChartMetric], ev.color);
+      }
+
+
       button
+        .style('background-color', '#3e7ac0') // Active pulse color
         .transition()
-        .duration(holdDur > 0 ? holdDur : 10) // Ensure minimum duration for transition
+        .duration(holdDur)
         .style('transform', 'scale(0.85)')
         .on('end', () => {
           button
+            .style('background-color', '#4A90E2') // Default button color
             .transition()
-            .duration(50) // Quick return to normal scale
+            .duration(50) // Short transition back to normal
             .style('transform', 'scale(1)')
             .on('end', () => {
-              // Schedule next event
-              animationTimeout = setTimeout(() => playEvents(i + 1), gapDur > 0 ? gapDur : 10);
+              animationTimeout = setTimeout(() => playEvents(i + 1), gapDur);
             });
         });
     }
-    console.log('Visualization 6 (Pulse) initialized!');
+    // --- End of Pulse Animation Logic ---
+
   }).catch(err => {
     console.error("Error processing pulse visualization data:", err);
+    if (chartLoader) chartLoader.style.display = 'none';
+    if (globalLoader) globalLoader.style.display = 'none';
     const pulseInfoBox = document.getElementById('pulse-info-box');
     if (pulseInfoBox) {
-      pulseInfoBox.innerHTML = "<p>Error: Could not load pulse data.</p>";
+      pulseInfoBox.innerHTML = "<p>Error: Could not load data.</p>";
       pulseInfoBox.style.visibility = 'visible';
     }
+    if (chartContainer) {
+        chartContainer.html("<p>Error: Could not load data for the chart.</p>");
+    }
   });
+
+  // --- Medication Line Chart Rendering Function ---
+  let chartSvg, xScale, yScale; // Make scales accessible for pulse point
+
+  function renderMedicationLineChart() {
+    if (allMedicationData.length === 0) return;
+
+    chartContainer.select("svg").remove(); // Clear previous chart
+
+    const margin = { top: 30, right: 150, bottom: 50, left: 60 };
+    const containerWidth = chartContainer.node().getBoundingClientRect().width || 600;
+    const containerHeight = 350; 
+    
+    const width = containerWidth - margin.left - margin.right;
+    const height = containerHeight - margin.top - margin.bottom;
+
+    chartSvg = chartContainer.append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const dataToPlot = allMedicationData.filter(ds => ds.length > 0 && visibleMedications.has(ds[0].medication));
+
+    let maxEvents = 0;
+    dataToPlot.forEach(ds => {
+      if (ds.length > maxEvents) maxEvents = ds.length;
+    });
+    const displayMaxEvents = Math.min(maxEvents, 200); 
+
+    let maxYValue = 0;
+    dataToPlot.forEach(ds => {
+        const slicedDs = ds.slice(0, displayMaxEvents);
+        const currentMaxY = d3.max(slicedDs, d => d[currentChartMetric]);
+        if (currentMaxY > maxYValue) maxYValue = currentMaxY;
+    });
+    if (maxYValue === 0 || isNaN(maxYValue)) maxYValue = (currentChartMetric === 'Hold') ? 500 : 1000; // Default max Y
+
+    xScale = d3.scaleLinear()
+      .domain([0, displayMaxEvents > 0 ? displayMaxEvents - 1 : 1])
+      .range([0, width]);
+
+    yScale = d3.scaleLinear()
+      .domain([0, maxYValue])
+      .nice()
+      .range([height, 0]);
+
+    const line = d3.line()
+      .x((d, i) => xScale(i))
+      .y(d => yScale(d[currentChartMetric]))
+      .defined(d => d[currentChartMetric] != null && !isNaN(d[currentChartMetric]));
+
+    chartSvg.append("g")
+      .attr("transform", `translate(0,${height})`)
+      .call(d3.axisBottom(xScale).ticks(Math.min(10, displayMaxEvents)))
+      .append("text")
+        .attr("class", "axis-label")
+        .attr("x", width / 2)
+        .attr("y", 40)
+        .attr("fill", "#000")
+        .style("text-anchor", "middle")
+        .text("Keystroke Event Index");
+
+    chartSvg.append("g")
+      .call(d3.axisLeft(yScale))
+      .append("text")
+        .attr("class", "axis-label")
+        .attr("transform", "rotate(-90)")
+        .attr("x", -height / 2)
+        .attr("y", -45)
+        .attr("fill", "#000")
+        .style("text-anchor", "middle")
+        .text(`${currentChartMetric} Time (ms)`);
+
+    dataToPlot.forEach(medData => {
+      if (medData.length > 0) {
+        const slicedData = medData.slice(0, displayMaxEvents);
+        chartSvg.append("path")
+          .datum(slicedData)
+          .attr("class", "medication-line")
+          .attr("fill", "none")
+          .attr("stroke", d => d[0].color)
+          .attr("stroke-width", 1.5)
+          .attr("d", line);
+      }
+    });
+
+    const legend = chartSvg.selectAll(".legend")
+      .data(meds.filter(m => visibleMedications.has(m.name) && allMedicationData.some(ds => ds.length > 0 && ds[0].medication === m.name)))
+      .enter().append("g")
+        .attr("class", "legend")
+        .attr("transform", (d, i) => `translate(${width + 20},${i * 20})`);
+
+    legend.append("rect")
+      .attr("x", 0)
+      .attr("width", 18)
+      .attr("height", 18)
+      .style("fill", d => d.color);
+
+    legend.append("text")
+      .attr("x", 24)
+      .attr("y", 9)
+      .attr("dy", ".35em")
+      .style("text-anchor", "start")
+      .text(d => d.name);
+  }
+  // --- End of Medication Line Chart Rendering Function ---
+
+  // --- Function to show pulse point on chart ---
+  function showPulsePointOnChart(index, value, color) {
+    if (!chartSvg || !xScale || !yScale || isNaN(value) || value === null) return;
+
+    d3.select(".pulsing-point").remove(); // Remove previous point
+
+    const cx = xScale(index);
+    const cy = yScale(value);
+
+    // Ensure point is within chart boundaries if scales are valid
+    if (cx >= 0 && cx <= xScale.range()[1] && cy >= 0 && cy <= yScale.range()[0]) {
+        chartSvg.append("circle")
+          .attr("class", "pulsing-point")
+          .attr("cx", cx)
+          .attr("cy", cy)
+          .attr("r", 5)
+          .attr("fill", color)
+          .style("opacity", 1)
+          .transition()
+            .duration(1000) // Match a reasonable pulse interval or slightly longer
+            .style("opacity", 0)
+            .remove(); // Optional: remove after fade for cleanliness, or rely on next .remove()
+    }
+  }
+  // --- End of showPulsePointOnChart ---
+
+  console.log('Visualization: Pulse Visualization and Medication Line Chart setup complete!');
 }
 // --- END VISUALIZATION 6 ---
+
+window.initializePulseVisualization = initializePulseVisualization;
